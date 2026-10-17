@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
+    android:background="@color/menu_background"
     android:fillViewport="true">
 
     <LinearLayout
@@ -10,39 +10,54 @@
         android:layout_height="wrap_content"
         android:gravity="center"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="24dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             android:text="@string/app_name"
-            android:textColor="#000000"
+            android:textColor="@color/game_navy"
             android:textSize="36sp"
             android:textStyle="bold" />
 
         <Button
             android:id="@+id/btnPlay"
             android:layout_width="260dp"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/button_teal"
+            android:elevation="3dp"
+            android:textColor="@android:color/white"
             android:text="@string/menu_play" />
 
         <Button
             android:id="@+id/btnMyScore"
             android:layout_width="260dp"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/button_teal_outline"
+            android:elevation="2dp"
+            android:textColor="@color/game_navy"
             android:text="@string/menu_my_score" />
 
         <Button
             android:id="@+id/btnRanking"
             android:layout_width="260dp"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/button_teal"
+            android:elevation="3dp"
+            android:textColor="@android:color/white"
             android:text="@string/menu_ranking" />
 
         <Button
             android:id="@+id/btnExit"
             android:layout_width="260dp"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
+            android:background="@drawable/button_red"
+            android:elevation="3dp"
+            android:textColor="@android:color/white"
             android:text="@string/menu_exit" />
     </LinearLayout>
 </ScrollView>
