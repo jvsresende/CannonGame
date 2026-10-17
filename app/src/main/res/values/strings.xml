@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Cannon Game</string>
+    <string name="win">Você venceu!</string>
+    <string name="lose">Fim de jogo!</string>
+    <string name="reset_game">Reiniciar</string>
+    <string name="next_level">Próximo nível</string>
+    <string name="new_record">Novo recorde!</string>
+    <string name="ranking_title">Ranking (Top 5)</string>
+    <string name="results_format">Tiros: %1$d\nTempo total: %2$.1f s\nPontuação: %3$d\nMaior sequência: %4$d\nNível: %5$d</string>
+    <string name="time_format">Tempo: %1$.1f s  |  Nível %2$d</string>
+    <string name="score_format">Pontos: %1$d  (x%2$d)</string>
+    <string name="aim_format">Ângulo: %1$d°  |  Força: %2$d%%</string>
+    <string name="menu_play">Jogar</string>
+    <string name="menu_my_score">Minha pontuação</string>
+    <string name="menu_ranking">Ranking</string>
+    <string name="menu_exit">Sair</string>
+    <string name="menu">Menu</string>
+    <string name="close">Fechar</string>
+    <string name="ranking_empty">Nenhuma pontuação ainda. Jogue uma partida!</string>
+    <string name="my_score_format">Melhor pontuação: %1$d\nÚltima pontuação: %2$d\nPartidas jogadas: %3$d\nMaior nível: %4$d</string>
+</resources>
