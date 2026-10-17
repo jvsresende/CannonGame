@@ -1,10 +1,27 @@
+# Android Studio / IntelliJ
 *.iml
-.gradle/
-/local.properties
-/.idea/
-.DS_Store
-/build/
-/app/build/
-/captures/
+.idea/
+*.ipr
+*.iws
+
+# Gradle
+**/.gradle/
+**/build/
+.kotlin/
+local.properties
+
+# Android build outputs
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+*.hprof
+
+# Native build outputs
 .externalNativeBuild/
 .cxx/
+
+# Operating system
+.DS_Store
+Thumbs.db
