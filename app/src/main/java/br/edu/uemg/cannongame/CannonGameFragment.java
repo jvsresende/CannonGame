@@ -40,6 +40,14 @@ public class CannonGameFragment extends Fragment {
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        if (cannonView != null) {
+            cannonView.resumeGame();
+        }
+    }
+
+    @Override
     public void onDestroy() {
         super.onDestroy();
         if (cannonView != null) {

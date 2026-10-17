@@ -2,8 +2,11 @@ package br.edu.uemg.cannongame;
 
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.DashPathEffect;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.PointF;
+import android.graphics.Shader;
 
 /** Canhão: mira (ângulo), força de disparo e a bala em voo. */
 public class Cannon {
@@ -16,6 +19,7 @@ public class Cannon {
     private final int barrelLength;
     private final PointF barrelEnd = new PointF();
     private final Paint paint = new Paint();
+    private final Paint aimPaint = new Paint();
 
     private double angle = 0;   // radianos; positivo = cano apontando para cima
     private float power = 1f;   // multiplicador da velocidade da bala
@@ -26,8 +30,17 @@ public class Cannon {
         this.baseRadius = baseRadius;
         this.barrelLength = barrelLength;
         paint.setStrokeWidth(barrelWidth);
-        paint.setColor(Color.BLACK);
+        paint.setColor(Color.rgb(23, 74, 126));
         paint.setAntiAlias(true);
+
+        float density = view.getResources().getDisplayMetrics().density;
+        aimPaint.setColor(Color.rgb(213, 94, 0));
+        aimPaint.setAntiAlias(true);
+        aimPaint.setStyle(Paint.Style.STROKE);
+        aimPaint.setStrokeCap(Paint.Cap.ROUND);
+        aimPaint.setStrokeWidth(3f * density);
+        aimPaint.setPathEffect(new DashPathEffect(
+                new float[]{1f * density, 5f * density}, 0));
         align(0);
     }
 
@@ -67,7 +80,7 @@ public class Cannon {
         float radius = view.getScreenHeight() * CannonView.CANNONBALL_RADIUS_PERCENT;
         float speed = view.getScreenWidth() * CannonView.CANNONBALL_SPEED_PERCENT * power;
 
-        cannonball = new Cannonball(view, Color.BLACK, CannonView.CANNON_SOUND_ID,
+        cannonball = new Cannonball(view, Color.rgb(213, 94, 0), CannonView.CANNON_SOUND_ID,
                 barrelEnd.x, barrelEnd.y, radius,
                 (float) (speed * Math.cos(angle)), (float) (-speed * Math.sin(angle)));
         cannonball.playSound();
@@ -82,6 +95,15 @@ public class Cannon {
     }
 
     public void draw(Canvas canvas) {
+        float aimLength = view.getScreenWidth() * 0.22f;
+        float aimEndX = barrelEnd.x + (float) (aimLength * Math.cos(angle));
+        float aimEndY = barrelEnd.y - (float) (aimLength * Math.sin(angle));
+
+        aimPaint.setShader(new LinearGradient(barrelEnd.x, barrelEnd.y, aimEndX, aimEndY,
+                Color.argb(220, 213, 94, 0), Color.argb(0, 213, 94, 0),
+                Shader.TileMode.CLAMP));
+        canvas.drawLine(barrelEnd.x, barrelEnd.y, aimEndX, aimEndY, aimPaint);
+        aimPaint.setShader(null);
         canvas.drawLine(0, baseY(), barrelEnd.x, barrelEnd.y, paint);
         canvas.drawCircle(0, baseY(), baseRadius, paint);
     }

@@ -3,10 +3,14 @@ package br.edu.uemg.cannongame;
 import android.app.Activity;
 import android.content.Context;
 import android.content.ContextWrapper;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.media.AudioAttributes;
+import android.media.MediaPlayer;
 import android.media.SoundPool;
 import android.util.AttributeSet;
 import android.util.SparseIntArray;
@@ -56,6 +60,7 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
     public static final int TARGET_SOUND_ID = 0;
     public static final int CANNON_SOUND_ID = 1;
     public static final int BLOCKER_SOUND_ID = 2;
+    public static final int FAIL_SOUND_ID = 3;
 
     // ---- Extras: pontuação, dificuldade progressiva, partículas ----
     private static final int POINTS_PER_HIT = 100;
@@ -72,6 +77,7 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
     private static final double INITIAL_TIME = 10.0;
 
     private CannonThread cannonThread;
+    private volatile boolean surfaceReady;
     private final Activity activity;
     private boolean dialogIsDisplayed = false;
 
@@ -92,15 +98,19 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
     private int streak;
     private int maxStreak;
     private int level = 1;
+    private boolean resultSaved;
 
     private final Random random = new Random();
     private final SoundPool soundPool;
     private final SparseIntArray soundMap;
+    private final MediaPlayer backgroundMusic;
     private final HighScoreManager highScores;
 
     private final Paint textPaint = new Paint();
     private final Paint hudPaint = new Paint();
-    private final Paint backgroundPaint = new Paint();
+    private final Paint backgroundImagePaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final Rect backgroundRect = new Rect();
+    private final Bitmap backgroundBitmap;
     private final Paint particlePaint = new Paint();
 
     // Controle por toque direcional (swipe)
@@ -120,20 +130,26 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build();
         soundPool = new SoundPool.Builder()
-                .setMaxStreams(3)
+                .setMaxStreams(4)
                 .setAudioAttributes(attributes)
                 .build();
 
-        soundMap = new SparseIntArray(3);
+        soundMap = new SparseIntArray(4);
         soundMap.put(TARGET_SOUND_ID, soundPool.load(context, R.raw.target_hit, 1));
         soundMap.put(CANNON_SOUND_ID, soundPool.load(context, R.raw.cannon_fire, 1));
         soundMap.put(BLOCKER_SOUND_ID, soundPool.load(context, R.raw.blocker_hit, 1));
+        soundMap.put(FAIL_SOUND_ID, soundPool.load(context, R.raw.fail, 1));
+        backgroundMusic = MediaPlayer.create(context, R.raw.background_music);
+        if (backgroundMusic != null) {
+            backgroundMusic.setLooping(true);
+            backgroundMusic.setVolume(0.15f, 0.15f);
+        }
+        backgroundBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.game_background);
 
         textPaint.setAntiAlias(true);
-        textPaint.setColor(Color.BLACK);
+        textPaint.setColor(Color.rgb(23, 74, 126));
         hudPaint.setAntiAlias(true);
-        hudPaint.setColor(Color.DKGRAY);
-        backgroundPaint.setColor(Color.WHITE);
+        hudPaint.setColor(Color.rgb(168, 70, 0));
         particlePaint.setAntiAlias(true);
     }
 
@@ -202,28 +218,63 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
             if (i % 2 == 0) {
                 speed = -speed; // direção alternada entre os alvos
             }
-            int color = (i % 2 == 0) ? Color.rgb(33, 150, 243) : Color.rgb(255, 193, 7);
+            int color = (i % 2 == 0)
+                    ? Color.rgb(0, 158, 115) : Color.rgb(213, 94, 0);
+
+            Target.MotionType motionType;
+            if (i % 3 == 1) {
+                motionType = Target.MotionType.SINE;
+            } else if (i % 3 == 2) {
+                motionType = Target.MotionType.ZIGZAG;
+            } else {
+                motionType = Target.MotionType.VERTICAL;
+            }
+            float horizontalSpeed = (i % 2 == 0 ? 1 : -1)
+                    * screenWidth * 0.035f * levelSpeed;
 
             targets.add(new Target(this, color, TARGET_SOUND_ID, targetX,
                     (screenHeight - targetLength) / 2f, targetWidth, targetLength,
-                    speed, HIT_REWARD));
+                    speed, HIT_REWARD, motionType, targetSpacing * 0.40f,
+                    motionType == Target.MotionType.ZIGZAG ? horizontalSpeed : 0,
+                    i * 0.8f));
             targetX += targetWidth + targetSpacing;
         }
 
         particles.clear();
         timeLeft = INITIAL_TIME;
-        shotsFired = 0;
-        totalElapsedTime = 0.0;
+        if (level == 1 && roundStartScore == 0) {
+            shotsFired = 0;
+            totalElapsedTime = 0.0;
+            maxStreak = 0;
+            resultSaved = false;
+        }
         score = roundStartScore;
         streak = 0;
-        maxStreak = 0;
         gameOver = false;
     }
 
     private void startGameThread() {
+        if (!surfaceReady || (cannonThread != null && cannonThread.isAlive())) return;
+        startBackgroundMusic();
         cannonThread = new CannonThread(getHolder());
         cannonThread.setRunning(true);
         cannonThread.start();
+    }
+
+    public void resumeGame() {
+        if (surfaceReady && !gameOver && cannon != null) startGameThread();
+    }
+
+    private void startBackgroundMusic() {
+        if (backgroundMusic != null && !backgroundMusic.isPlaying()) {
+            backgroundMusic.start();
+        }
+    }
+
+    private void pauseBackgroundMusic() {
+        if (backgroundMusic != null && backgroundMusic.isPlaying()) {
+            backgroundMusic.pause();
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -248,6 +299,7 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
                 // errou o tiro: perde a sequência
                 cannon.removeCannonball();
                 streak = 0;
+                playSound(FAIL_SOUND_ID);
             } else if (ball.collidesWith(blocker)) {
                 blocker.playSound();
                 ball.reverseVelocityX();
@@ -299,8 +351,8 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
 
     private void spawnParticles(float cx, float cy) {
         int[] palette = {
-                Color.rgb(255, 193, 7), Color.rgb(244, 67, 54), Color.rgb(33, 150, 243),
-                Color.rgb(76, 175, 80), Color.rgb(255, 87, 34)
+                Color.rgb(0, 158, 115), Color.rgb(213, 94, 0),
+                Color.rgb(23, 74, 126), Color.rgb(235, 150, 85)
         };
         for (int i = 0; i < PARTICLE_COUNT; i++) {
             double a = 2 * Math.PI * i / PARTICLE_COUNT + random.nextDouble() * 0.3;
@@ -330,7 +382,12 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
     // Desenho
     // ---------------------------------------------------------------------
     public void drawGameElements(Canvas canvas) {
-        canvas.drawRect(0, 0, canvas.getWidth(), canvas.getHeight(), backgroundPaint);
+        if (backgroundBitmap != null) {
+            backgroundRect.set(0, 0, canvas.getWidth(), canvas.getHeight());
+            canvas.drawBitmap(backgroundBitmap, null, backgroundRect, backgroundImagePaint);
+        } else {
+            canvas.drawColor(Color.rgb(242, 246, 252));
+        }
 
         float ts = textPaint.getTextSize();
         canvas.drawText(getResources().getString(R.string.time_format, timeLeft, level),
@@ -362,6 +419,7 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
     // ---------------------------------------------------------------------
     private void endGame(boolean won) {
         gameOver = true;
+        pauseBackgroundMusic();
         if (cannonThread != null) {
             cannonThread.setRunning(false);
         }
@@ -373,10 +431,8 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
                 R.string.results_format, shotsFired, totalElapsedTime, score, maxStreak, level));
 
         if (!won) {
-            highScores.recordGame(score, level);
-            List<Integer> previous = highScores.getScores();
-            int previousBest = previous.isEmpty() ? 0 : previous.get(0);
-            List<Integer> ranking = highScores.addScore(score);
+            int previousBest = highScores.getBestScore();
+            List<Integer> ranking = saveResult();
 
             if (score > 0 && score > previousBest) {
                 message.append("\n\n").append(getResources().getString(R.string.new_record));
@@ -418,6 +474,8 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
                                 if (!won) {
                                     level = 1;
                                     roundStartScore = 0;
+                                } else {
+                                    saveResult();
                                 }
                                 activity.finish(); // volta ao menu
                             }
@@ -432,12 +490,26 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
     // Ciclo de vida
     // ---------------------------------------------------------------------
     public void stopGame() {
-        if (cannonThread != null) {
-            cannonThread.setRunning(false);
+        pauseBackgroundMusic();
+        CannonThread thread = cannonThread;
+        if (thread == null) return;
+        thread.setRunning(false);
+        if (Thread.currentThread() == thread) return;
+        boolean interrupted = false;
+        while (thread.isAlive()) {
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                interrupted = true;
+            }
         }
+        if (cannonThread == thread) cannonThread = null;
+        if (interrupted) Thread.currentThread().interrupt();
     }
 
     public void releaseResources() {
+        stopGame();
+        if (backgroundMusic != null) backgroundMusic.release();
         soundPool.release();
     }
 
@@ -447,27 +519,28 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
+        surfaceReady = true;
         if (!dialogIsDisplayed) {
             newGame();
             startGameThread();
         }
     }
 
+    private List<Integer> saveResult() {
+        if (resultSaved) {
+            return highScores.getScores();
+        }
+
+        highScores.recordGame(score, level);
+        List<Integer> ranking = highScores.addScore(score);
+        resultSaved = true;
+        return ranking;
+    }
+
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        if (cannonThread == null) {
-            return;
-        }
-        boolean retry = true;
-        cannonThread.setRunning(false);
-        while (retry) {
-            try {
-                cannonThread.join();
-                retry = false;
-            } catch (InterruptedException e) {
-                // tenta novamente
-            }
-        }
+        surfaceReady = false;
+        stopGame();
     }
 
     // ---------------------------------------------------------------------
@@ -568,9 +641,17 @@ public class CannonView extends SurfaceView implements SurfaceHolder.Callback {
                             previousFrameTime = currentTime;
                         }
                     }
+                } catch (RuntimeException e) {
+                    android.util.Log.e("CannonView", "Falha no loop de desenho do jogo", e);
+                    threadIsRunning = false;
                 } finally {
                     if (canvas != null) {
-                        surfaceHolder.unlockCanvasAndPost(canvas);
+                        try {
+                            surfaceHolder.unlockCanvasAndPost(canvas);
+                        } catch (RuntimeException e) {
+                            android.util.Log.e("CannonView", "Falha ao liberar o Canvas", e);
+                            threadIsRunning = false;
+                        }
                         canvas = null;
                     }
                 }

@@ -35,7 +35,8 @@ public class GameElement {
     }
 
     public void draw(Canvas canvas) {
-        canvas.drawRect(shape, paint);
+        float cornerRadius = Math.min(shape.width() * 0.45f, 12f);
+        canvas.drawRoundRect(shape, cornerRadius, cornerRadius, paint);
     }
 
     public void playSound() {
